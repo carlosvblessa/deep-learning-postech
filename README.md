@@ -20,24 +20,17 @@ Reuniao de roteiros, notebooks, scripts e materiais de apoio utilizados nas aula
 - **Aula 05 – Casos de Uso:** explora aplicacoes em PLN, visao computacional, IA generativa e integracoes transacionais (detecao de fraude, recomendacao, automacao), destacando requisitos operacionais para rodar modelos em producao.
 
 ## Requisitos e Preparacao
-- Python 3.11
-- Poetry (recomendado) ou pip para gerenciar dependencias
-- GPU opcional para acelerar redes profundas e transformers
+- Python 3.11 com `pip` atualizado
+- GPU opcional (scripts caem para CPU se CUDA nao estiver disponivel)
 
-### Setup com Poetry
-```bash
-pip install poetry
-poetry install
-poetry shell
-```
-
-### Setup com venv + pip
+### Setup recomendado (venv + pip)
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r <(poetry export --without-hashes)
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
-> Em ambientes sem `poetry` instalado, exporte manualmente as dependencias listadas em `src/pyproject.toml`.
+> O arquivo `requirements.txt` aponta para o indice oficial do PyTorch com suporte CUDA 11.8 (`--extra-index-url`) para aproveitar a GPU Quadro P620. Se estiver sem GPU ou desejar CPU-only, remova a primeira linha do arquivo antes da instalacao.
 
 ## Executando os Exemplos
 - Funcoes de ativacao: `python src/activation_functions/relu.py`

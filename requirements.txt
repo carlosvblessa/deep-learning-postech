@@ -1,0 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+numpy<2
+torch==2.1.2+cu118
+torchvision==0.16.2+cu118
+transformers==4.48.2
+datasets==3.2.0
+evaluate==0.4.3
+mlflow==2.20.1
+pytorch-lightning==2.1.4
+matplotlib
+Pillow
+Flask
+prometheus-client

@@ -6,6 +6,8 @@ __pycache__/
 venv/
 .env
 
+mlruns/
+
 # Logs and outputs
 **/logs/*.log
 **/logs/*.txt
