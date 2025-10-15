@@ -49,7 +49,7 @@ Em seguida acesse `http://localhost:5001`.
 ## Boas Praticas
 - Reduza `num_epochs` ou `num_samples` nos scripts antes de demonstracoes ao vivo se precisar de execucoes mais rapidas.
 - Certifique-se de que os downloads do Hugging Face (BERT, T5) e do MNIST estejam disponiveis no ambiente ou habilite acesso a rede.
-- Para reproducao em GPU, verifique a instalacao correta de PyTorch com CUDA.
+- Para reproducao em GPU, verifique a instalacao correta de PyTorch com CUDA. Em placas com pouca VRAM (ex.: Quadro P620), considere rodar com CPU (`CUDA_VISIBLE_DEVICES=-1`) para evitar erros de falta de memoria.
 - Utilize os dashboards do Prometheus (com `src/productization/prometheus.yaml`) para acompanhar latencia, contagem de inferencias e acuracia simulada.
 
 ## Licenca
