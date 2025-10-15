@@ -21,16 +21,16 @@ Reuniao de roteiros, notebooks, scripts e materiais de apoio utilizados nas aula
 
 ## Requisitos e Preparacao
 - Python 3.11 com `pip` atualizado
-- GPU opcional (scripts caem para CPU se CUDA nao estiver disponivel)
+- GPU opcional para acelerar redes profundas e transformers
 
-### Setup recomendado (venv + pip)
+### Setup (venv + pip)
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
-> O arquivo `requirements.txt` aponta para o indice oficial do PyTorch com suporte CUDA 11.8 (`--extra-index-url`) para aproveitar a GPU Quadro P620. Se estiver sem GPU ou desejar CPU-only, remova a primeira linha do arquivo antes da instalacao.
+> Se preferir outro gerenciador (como Poetry ou UV), utilize `src/pyproject.toml` como referencia para as mesmas dependencias.
 
 ## Executando os Exemplos
 - Funcoes de ativacao: `python src/activation_functions/relu.py`

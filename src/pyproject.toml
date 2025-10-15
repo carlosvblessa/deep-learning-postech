@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "py-content-safety"
+version = "0.1.0"
+description = ""
+authors = ["Ricardo Cataldi <rcataldi@microsoft.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+azure-cognitiveservices-vision-contentmoderator = "^1.0.0"
+azure-identity = "^1.19.0"
+azure-ai-ml = "^1.21.1"
+azure-ai-contentsafety = "^1.0.0"
+python-dotenv = "^1.0.1"
+torch = "^2.6.0"
+transformers = "^4.48.2"
+evaluate = "^0.4.3"
+datasets = "^3.2.0"
+scikit-learn = "^1.6.1"
+torchvision = "^0.21.0"
+mlflow = "^2.20.1"
+lightning = {extras = ["quantization"], version = "^2.5.1.post0"}
+jupyterlab = "^4.3.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

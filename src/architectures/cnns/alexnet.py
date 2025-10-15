@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,38 +8,15 @@ import mlflow.pytorch
 
 # Set device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.set_num_threads(os.cpu_count())
 
-# Hyperparameters (values may be adjusted below for low-VRAM GPUs)
+# Hyperparameters
 num_epochs = 10
 batch_size = 64
 learning_rate = 0.001
 num_samples = 10000  # Number of artificial samples to generate
 image_size = 224  # Size of the images (224x224 pixels, matching AlexNet's input)
 num_classes = 10  # Number of classes (e.g., 10 classes)
-
-if device.type == "cuda":
-    free_mem_bytes, total_mem_bytes = torch.cuda.mem_get_info()
-    free_mem_gb = free_mem_bytes / (1024 ** 3)
-    props = torch.cuda.get_device_properties(device)
-    total_mem_gb = total_mem_bytes / (1024 ** 3)
-    if total_mem_gb <= 3.0 or free_mem_gb < 1.0:
-        print(
-            f"Detected GPU '{props.name}' with {total_mem_gb:.2f} GB VRAM "
-            f"({free_mem_gb:.2f} GB free). Falling back to CPU execution to avoid CUDA OOM."
-        )
-        device = torch.device("cpu")
-        batch_size = min(batch_size, 8)
-        num_samples = min(num_samples, 256)
-        num_epochs = 1
-    elif total_mem_gb <= 4:
-        # Slightly larger GPUs (e.g., 4 GB) can run a light workload.
-        print(
-            f"Detected GPU '{props.name}' with {total_mem_gb:.2f} GB VRAM. "
-            "Adjusting batch size, dataset size and epochs to avoid OOM."
-        )
-        batch_size = 8
-        num_samples = 256
-        num_epochs = 1
 
 # Generate artificial data
 def generate_artificial_data(num_samples, image_size, num_classes):
@@ -50,35 +28,15 @@ def generate_artificial_data(num_samples, image_size, num_classes):
     
     return images, labels
 
-def build_dataloaders(num_samples, image_size, num_classes, batch_size, pin_memory):
-    train_images, train_labels = generate_artificial_data(num_samples, image_size, num_classes)
-    test_images, test_labels = generate_artificial_data(max(num_samples // 10, 1), image_size, num_classes)
+# Create artificial training and testing datasets
+train_images, train_labels = generate_artificial_data(num_samples, image_size, num_classes)
+test_images, test_labels = generate_artificial_data(num_samples // 10, image_size, num_classes)
 
-    train_dataset = TensorDataset(train_images, train_labels)
-    test_dataset = TensorDataset(test_images, test_labels)
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=pin_memory,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        pin_memory=pin_memory,
-    )
-    return train_loader, test_loader
-
-
-train_loader, test_loader = build_dataloaders(
-    num_samples=num_samples,
-    image_size=image_size,
-    num_classes=num_classes,
-    batch_size=batch_size,
-    pin_memory=(device.type == "cuda"),
-)
+# Create DataLoaders
+train_dataset = TensorDataset(train_images, train_labels)
+test_dataset = TensorDataset(test_images, test_labels)
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
 # AlexNet model
 class AlexNet(nn.Module):
@@ -186,20 +144,4 @@ def evaluate_model(model):
     mlflow.log_metric("test_accuracy", accuracy)
 
 if __name__ == "__main__":
-    if device.type == "cuda":
-        try:
-            train_model()
-        except torch.cuda.OutOfMemoryError:
-            print("GPU ran out of memory. Falling back to CPU execution.")
-            torch.cuda.empty_cache()
-            device = torch.device("cpu")
-            train_loader, test_loader = build_dataloaders(
-                num_samples=num_samples,
-                image_size=image_size,
-                num_classes=num_classes,
-                batch_size=batch_size,
-                pin_memory=False,
-            )
-            train_model()
-    else:
-        train_model()
+    train_model()
