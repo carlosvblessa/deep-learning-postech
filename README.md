@@ -20,7 +20,7 @@ Reuniao de roteiros, notebooks, scripts e materiais de apoio utilizados nas aula
 - **Aula 05 – Casos de Uso:** explora aplicacoes em PLN, visao computacional, IA generativa e integracoes transacionais (detecao de fraude, recomendacao, automacao), destacando requisitos operacionais para rodar modelos em producao.
 
 ## Requisitos e Preparacao
-- Python 3.11 com `pip` atualizado
+- Python 3.10 com `pip` atualizado
 - GPU opcional para acelerar redes profundas e transformers
 
 ### Setup (venv + pip)
