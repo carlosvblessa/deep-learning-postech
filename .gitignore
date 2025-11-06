@@ -6,7 +6,12 @@ __pycache__/
 venv/
 .env
 
+# MLflow runs
 mlruns/
+runs/
+
+# Model files
+*.pth
 
 # Logs and outputs
 **/logs/*.log
