@@ -1,111 +1,166 @@
+# Importa o núcleo do PyTorch para tensores e computação numérica
 import torch
+# Importa camadas/containers de rede neural
 import torch.nn as nn
-from torch.autograd import Variable
+# Otimizador Adam para atualização dos pesos
 from torch.optim import Adam
-import numpy as np
+# MLflow para experiment tracking
 import mlflow
+# Submódulo do MLflow para serializar modelos PyTorch
 import mlflow.pytorch
+# Biblioteca NumPy para manipulação de arrays e geração de dados
+import numpy as np
 
-# Data params
-data_mean = 4
+# Seleciona GPU se disponível; caso contrário, usa CPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Fixa a semente para reprodutibilidade básica
+torch.manual_seed(42)
+np.random.seed(42)
+
+# Parâmetros dos dados (distribuição alvo que o G deve imitar)
+# Usaremos amostras gaussianas 1D por feature com média 4.0 e desvio 1.25.
+data_mean = 4.0
 data_stddev = 1.25
 
-# Model params
-g_input_size = 50     # Random noise dimension coming into generator
-g_hidden_size = 100   # Generator complexity
-g_output_size = 50   # Size of generated output vector
-d_input_size = 50   # Minibatch size
-d_hidden_size = 50   # Discriminator complexity
-d_hidden_2_size = 50 # Discriminator complexity
-d_output_size = 1    # Single dimension for 'real' vs. 'fake' classification
-minibatch_size = d_input_size
+# Hiperparâmetros dos modelos e do treino
+# Dimensão do ruído que entra no Gerador
+g_input_size   = 50
+# Capacidade (largura) do Gerador
+g_hidden_size  = 100
+# Dimensão de saída do Gerador (precisa casar com a entrada do Discriminador)
+g_output_size  = 50
+# Dimensão de entrada do Discriminador (tem que ser igual a g_output_size)
+d_input_size   = 50
+# Camadas ocultas do Discriminador
+d_hidden_size  = 50
+d_hidden_2_size = 50
+# Saída do Discriminador (logit único)
+d_output_size  = 1
+# Tamanho do minibatch, nº de épocas e LR do Adam
+minibatch_size = 50
+num_epochs     = 1000
+lr             = 2e-4
 
-# Function to generate real data
+# Função que gera dados "reais" do domínio (alvo do treinamento)
+# Retorna um batch [B, d_input_size] de amostras gaussianas.
 def get_real_data():
-    return torch.Tensor(np.random.normal(data_mean, data_stddev, (50, minibatch_size)))
+    x = torch.tensor(
+        np.random.normal(data_mean, data_stddev, (minibatch_size, d_input_size)),
+        dtype=torch.float32,
+        device=device
+    )
+    return x
 
-# Generator model
+# Definição do Gerador (MLP simples)
+# Entrada: ruído z ∈ R^{g_input_size}
+# Saída: vetor "falso" ∈ R^{g_output_size}
 class Generator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.LSTM(g_input_size, g_hidden_size),
-            nn.ReLU(),
-            nn.Linear(g_hidden_size, g_output_size)
+        self.net = nn.Sequential(
+            nn.Linear(g_input_size, g_hidden_size),
+            nn.ReLU(True),
+            nn.Linear(g_hidden_size, g_hidden_size),
+            nn.ReLU(True),
+            nn.Linear(g_hidden_size, g_output_size)  # logits contínuos (sem ativação final)
         )
-    
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, z):
+        return self.net(z)
 
-# Discriminator model
+# Definição do Discriminador (MLP)
+# Entrada: amostra x ∈ R^{d_input_size}
+# Saída: logit escalar (probabilidade de "real" após Sigmoid implícito na loss)
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = nn.Sequential(
+        self.net = nn.Sequential(
             nn.Linear(d_input_size, d_hidden_size),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(d_hidden_size, d_hidden_2_size),
-            nn.ReLU(),
-            nn.Linear(d_hidden_2_size, d_output_size),
-            nn.Sigmoid()
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(d_hidden_2_size, 1)  # logits (usar BCEWithLogitsLoss)
         )
-    
     def forward(self, x):
-        return self.model(x)
+        return self.net(x)
 
-# Training loop with MLflow logging
+# Laço de treinamento da GAN (não-condicional)
 def train():
-    # Initialize models and optimizers
-    gen_nn = Generator()
-    disc_nn = Discriminator()
-    criterion = nn.BCELoss()
-    d_optimizer = Adam(gen_nn.parameters())
-    g_optimizer = Adam(disc_nn.parameters())
+    # Instancia modelos no device
+    G = Generator().to(device)
+    D = Discriminator().to(device)
 
-    # Start MLflow experiment
-    mlflow.set_experiment("GAN Training")
+    # BCEWithLogitsLoss: combina Sigmoid + BCE de forma estável numericamente
+    criterion = nn.BCEWithLogitsLoss()
+
+    # Otimizadores independentes para D e G (correto)
+    d_optimizer = Adam(D.parameters(), lr=lr, betas=(0.5, 0.999))
+    g_optimizer = Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
+
+    # Cria/seleciona experimento no MLflow
+    mlflow.set_experiment("GAN Training (1D)")
     with mlflow.start_run():
-        for epoch in range(1000):
-            # 1. Train Discriminator
-            real_data = get_real_data()
-            fake_data = gen_nn(Variable(torch.randn(g_input_size, minibatch_size)))
-            d_real_decision = disc_nn(real_data)
-            d_fake_decision = disc_nn(fake_data.detach())
+        # Loop principal de épocas
+        for epoch in range(num_epochs):
+            # -------- Passo do Discriminador (D) --------
+            # Amostras reais do domínio alvo
+            real_data = get_real_data()  # [B, 50]
+            # Amostras falsas geradas a partir de ruído
+            noise = torch.randn(minibatch_size, g_input_size, device=device)
+            fake_data = G(noise).detach()  # detach: não propaga gradiente para G aqui
 
-            d_real_error = criterion(d_real_decision, Variable(torch.ones(minibatch_size, 1)))  
-            d_fake_error = criterion(d_fake_decision, Variable(torch.zeros(minibatch_size, 1))) 
+            # Zera gradientes de D
             d_optimizer.zero_grad()
-            d_error = d_real_error + d_fake_error
-            d_error.backward()
+            # Logits de D para reais e falsos
+            d_real = D(real_data)
+            d_fake = D(fake_data)
+            # Labels para loss: reais=1, falsos=0
+            d_real_loss = criterion(d_real, torch.ones(minibatch_size, 1, device=device))
+            d_fake_loss = criterion(d_fake, torch.zeros(minibatch_size, 1, device=device))
+            # Loss total de D
+            d_loss = d_real_loss + d_fake_loss
+            # Backprop e passo do otimizador de D
+            d_loss.backward()
             d_optimizer.step()
 
-            # 2. Train Generator
-            fake_data = gen_nn(Variable(torch.randn(minibatch_size, g_input_size)))
-            d_fake_decision = disc_nn(fake_data)
-            g_error = criterion(d_fake_decision, Variable(torch.ones(minibatch_size, 1))) 
+            # -------- Passo do Gerador (G) --------
+            # Novo ruído para evitar colapso de batch
+            noise = torch.randn(minibatch_size, g_input_size, device=device)
+            gen = G(noise)
+            # Zera gradientes de G
             g_optimizer.zero_grad()
-            g_error.backward()
+            # Passa os gerados por D — objetivo de G é "enganar" D (alvos=1)
+            d_gen = D(gen)
+            g_loss = criterion(d_gen, torch.ones(minibatch_size, 1, device=device))
+            # Backprop e passo do otimizador de G
+            g_loss.backward()
             g_optimizer.step()
 
-            # Log results and print every 100 epochs
+            # Logging/print periódico
             if epoch % 100 == 0:
-                print("Epoch %s: D (%s real_err, %s fake_err) G (%s err)" % (epoch, d_real_error.item(), d_fake_error.item(), g_error.item()))
+                print(f"Epoch {epoch:04d} | D: real {d_real_loss.item():.3f} "
+                      f"fake {d_fake_loss.item():.3f} tot {d_loss.item():.3f} | "
+                      f"G: {g_loss.item():.3f}")
+                mlflow.log_metric("d_real_loss", d_real_loss.item(), step=epoch)
+                mlflow.log_metric("d_fake_loss", d_fake_loss.item(), step=epoch)
+                mlflow.log_metric("d_loss", d_loss.item(), step=epoch)
+                mlflow.log_metric("g_loss", g_loss.item(), step=epoch)
 
-                # Log errors to MLflow
-                mlflow.log_metric("d_real_error", d_real_error.item(), step=epoch)
-                mlflow.log_metric("d_fake_error", d_fake_error.item(), step=epoch)
-                mlflow.log_metric("g_error", g_error.item(), step=epoch)
+        # Log de hiperparâmetros no fim do treinamento
+        mlflow.log_params({
+            "g_input_size": g_input_size,
+            "g_hidden_size": g_hidden_size,
+            "g_output_size": g_output_size,
+            "d_input_size": d_input_size,
+            "d_hidden_size": d_hidden_size,
+            "d_hidden_2_size": d_hidden_2_size,
+            "minibatch_size": minibatch_size,
+            "lr": lr,
+            "epochs": num_epochs,
+        })
+        # Salva os artefatos de modelo (G e D) no MLflow
+        mlflow.pytorch.log_model(G, "generator")
+        mlflow.pytorch.log_model(D, "discriminator")
 
-        # Log model parameters and final weights
-        mlflow.log_param("g_input_size", g_input_size)
-        mlflow.log_param("g_hidden_size", g_hidden_size)
-        mlflow.log_param("g_output_size", g_output_size)
-        mlflow.log_param("d_input_size", d_input_size)
-        mlflow.log_param("d_hidden_size", d_hidden_size)
-        mlflow.log_param("d_output_size", d_output_size)
-
-        # Log the final models
-        mlflow.pytorch.log_model(gen_nn, "generator")
-        mlflow.pytorch.log_model(disc_nn, "discriminator")
-
-train()
+# Ponto de entrada: executa o treino quando rodado como script
+if __name__ == "__main__":
+    train()
