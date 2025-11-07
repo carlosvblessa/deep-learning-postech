@@ -1,6 +1,6 @@
-# POSTECH FCD - Modulo 4: Deep Learning
+# POSTECH MLE - Modulo 4: Deep Learning
 
-Reuniao de roteiros, notebooks, scripts e materiais de apoio utilizados nas aulas do modulo de Deep Learning do curso de Formacao em Ciencia de Dados (FCD) da POSTECH. O objetivo e oferecer exemplos completos que conectam fundamentos teoricos, implementacoes com PyTorch e boas praticas de monitoramento e productizacao.
+Reuniao de roteiros, notebooks, scripts e materiais de apoio utilizados nas aulas do modulo de Deep Learning do curso de Machine Learning Engineering (MLE) da POSTECH. O objetivo e oferecer exemplos completos que conectam fundamentos teoricos, implementacoes com PyTorch e boas praticas de monitoramento e productizacao.
 
 ## Estrutura
 - `LICENSE`: licenca do conteudo.
